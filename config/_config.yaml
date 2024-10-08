@@ -1,0 +1,10 @@
+bot:
+  token:
+
+postgreSQL:
+  host:
+  port:
+  db_name:
+  user_name:
+  pwd:
+timeout: # 10s
