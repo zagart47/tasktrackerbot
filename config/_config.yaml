@@ -3,8 +3,13 @@ bot:
 
 postgreSQL:
   host:
-  port:
-  db_name:
-  user_name:
+  port: 5432
+  db_name: postgres
+  user_name: postgres
   pwd:
-timeout: # 10s
+timeout: 10s
+migration: file://././internal/storage/postgresql/migrations
+redis:
+  host:
+  port: 6379
+  pwd:
