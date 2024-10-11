@@ -12,6 +12,6 @@ RUN env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /main cmd/tasktrackerb
 
 FROM alpine:latest
 COPY config/config.yaml config/
-COPY internal/repository/postgresql/. internal/repository/postgresql/
+COPY internal/storage/postgresql/. internal/storage/postgresql/
 COPY --from=builder main /main
 ENTRYPOINT ["/main"]
