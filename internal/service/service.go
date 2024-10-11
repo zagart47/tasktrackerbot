@@ -1,19 +1,14 @@
 package service
 
-import (
-	"tasktrackerbot/internal/repository"
-	"tasktrackerbot/internal/usecase"
-)
+import "tasktrackerbot/internal/usecase"
 
 type Services struct {
-	usecases usecase.Usecases
-	Tasks    Tasks
+	Tasks Tasks
 }
 
-func NewServices(repo repository.Repositories) Services {
-	usecases := usecase.NewUsecases(repo)
-	services := NewTaskService(usecases)
+func NewServices(usecases usecase.Usecases) Services {
+	taskService := NewTaskService(usecases)
 	return Services{
-		Tasks: services,
+		Tasks: taskService,
 	}
 }

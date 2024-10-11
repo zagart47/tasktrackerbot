@@ -3,15 +3,17 @@ package handler
 import (
 	"context"
 	"fmt"
+	"log"
 	"regexp"
 	"strconv"
 	"tasktrackerbot/pkg/remind"
 	"time"
 
-	tele "gopkg.in/telebot.v3"
 	"tasktrackerbot/config"
 	"tasktrackerbot/internal/entity"
 	"tasktrackerbot/internal/transport"
+
+	tele "gopkg.in/telebot.v3"
 )
 
 type Bot struct {
@@ -25,14 +27,11 @@ func NewHandler(bot transport.BotService) Bot {
 }
 
 func (b *Bot) Start(c tele.Context) error {
-	return c.Reply("hello")
+	return b.sendMessage(c, "Привет! Я бот для управления задачами.", b.getMainMenuKeyboard())
 }
 
-func (b *Bot) HandleText(c tele.Context) error {
-	// Сохраняем последнее сообщение от пользователя
-	userID := c.Sender().ID
-	lastMessages[userID] = c.Text()
-	return c.Reply("Hello")
+func (b *Bot) sendMessage(c tele.Context, text string, keyboard *tele.ReplyMarkup) error {
+	return c.Send(text, &tele.SendOptions{ReplyMarkup: keyboard, ParseMode: tele.ModeHTML})
 }
 
 func checkCommand(command string, botName string) []string {
@@ -58,96 +57,95 @@ func (b *Bot) HandleCtrlCommand(c tele.Context) error {
 		return nil
 	}
 	// Получаем последнее сообщение от пользователя
-	text, ok := lastMessages[id]
+	msg, ok := lastMessages[id]
 	if !ok {
 		return c.Reply("Не удалось найти задачу. Убедитесь, что вы отправили сообщение перед командой.")
 	}
 
 	// Извлекаем интервал и продолжительность
-	interval, _ := strconv.Atoi(matches[1])
-	duration := matches[2]
+	duration, _ := strconv.Atoi(matches[1])
+	timeFormat := matches[2]
 
-	// Создаем структуру ReminderDuration
-	reminder := entity.ReminderDuration{
-		Value: interval,
-		Unit:  duration,
+	err := remind.ValidateReminderDuration(timeFormat, duration)
+	if err != nil {
+		return c.Reply("Неверный формат срока напоминания")
 	}
+
+	taskDuration, timeUnit := remind.CalculateReminderTime(timeFormat, duration)
+
+	task := entity.Task{
+		UserID:       id,
+		Text:         msg,
+		CreatedAt:    time.Now(),
+		Expiration:   time.Now().Add(taskDuration),
+		Duration:     taskDuration,
+		ReminderSent: false,
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), config.Configs.Timeout)
 	defer cancel()
 	// Добавляем задачу с использованием сервиса
-	task, err := b.Services.Tasks.AddTask(ctx, id, text, reminder)
+	task.ID, err = b.Services.Tasks.AddTask(ctx, task)
 	if err != nil {
 		return c.Reply(fmt.Sprintf("Ошибка при добавлении задачи: %s", err.Error()))
 	}
 
-	// Планируем напоминание
-	reminderTime := remind.CalculateReminderTime(reminder.Unit, reminder.Value)
-	durationUntilReminder := reminderTime.Sub(time.Now())
-	time.AfterFunc(durationUntilReminder, func() {
-		b.sendReminder(task)
-	})
-
 	// Отправляем ответ пользователю
-	response := fmt.Sprintf("#Задача# %s принята. Напомню о ней через %d%s.", text, interval, duration)
-	return c.Reply(response)
-}
 
-func (b *Bot) sendReminder(task entity.Task) {
-	ctx, cancel := context.WithTimeout(context.Background(), config.Configs.Timeout)
-	defer cancel()
-	err := b.Services.Tasks.MarkReminderSent(ctx, task.ID)
-	if err != nil {
-		fmt.Printf("Ошибка при отметке напоминания как отправленного: %s\n", err.Error())
-		return
-	}
-	b.Send(tele.ChatID(task.UserID), fmt.Sprintf("Напоминание: %s", task.Text))
-}
-
-func (b *Bot) processReminders() {
-	for {
-		time.Sleep(time.Minute)
-		ctx, cancel := context.WithTimeout(context.Background(), config.Configs.Timeout)
-		tasks, err := b.Services.Tasks.GetPendingReminders(ctx)
-		if err != nil {
-			fmt.Printf("Ошибка при получении ожидающих напоминаний: %s\n", err.Error())
-			continue
-		}
-
-		for _, task := range tasks {
-			durationUntilReminder := task.ReminderTime.Sub(time.Now())
-			if durationUntilReminder <= 0 {
-				b.sendReminder(task)
-			} else {
-				time.AfterFunc(durationUntilReminder, func() {
-					b.sendReminder(task)
-				})
-			}
-		}
-		cancel()
-	}
-}
-
-func (b *Bot) restoreReminders() {
-	ctx, cancel := context.WithTimeout(context.Background(), config.Configs.Timeout)
-	defer cancel()
-	tasks, err := b.Services.Tasks.GetPendingReminders(ctx)
-	if err != nil {
-		fmt.Printf("Ошибка при восстановлении напоминаний: %s\n", err.Error())
-		return
-	}
-
-	for _, task := range tasks {
-		durationUntilReminder := task.ReminderTime.Sub(time.Now())
-		time.AfterFunc(durationUntilReminder, func() {
-			b.sendReminder(task)
-		})
-	}
+	text := fmt.Sprintf("#Задача# \"%s\" принята. Присвоил ей № <b>%v</b>. Напомню о ней через <b>%d %s</b>.", task.Text, task.ID, duration, timeUnit)
+	return c.Reply(text, &tele.SendOptions{ParseMode: tele.ModeHTML})
 }
 
 func (b *Bot) InitHandlers() {
-	b.Bot.Handle(tele.OnText, b.HandleText)
 	b.Bot.Handle("/start", b.Start)
 	b.Bot.Handle(tele.OnText, b.HandleCtrlCommand) // Добавляем обработчик команды
-	go b.processReminders()
-	b.restoreReminders()
+	b.Bot.Handle(&tele.ReplyButton{Text: "Мои задачи"}, b.MyTasksHandler)
+	go b.StartTasksSending()
+}
+
+func (b *Bot) StartTasksSending() {
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), config.Configs.Timeout)
+		tasks, err := b.Services.Tasks.GetUnsentTasks(ctx)
+		cancel()
+		if err != nil {
+			log.Println(err)
+		}
+		for _, task := range tasks {
+			ctx, cancel = context.WithTimeout(context.Background(), config.Configs.Timeout)
+			err = b.sendReminder(task)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			err = b.Services.Tasks.MarkAsSent(ctx, task.ID)
+			if err != nil {
+				log.Println(err)
+				continue
+			}
+			cancel()
+		}
+		time.Sleep(time.Second * 1)
+	}
+}
+
+func (b *Bot) MyTasksHandler(c tele.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), config.Configs.Timeout)
+	defer cancel()
+	tasks, err := b.Services.Tasks.GetTasksByUserID(ctx, c.Sender().ID)
+	if err != nil {
+		return err
+	}
+	for _, task := range tasks {
+		m := Message{
+			TaskId:    strconv.FormatInt(task.ID, 10),
+			Text:      task.Text,
+			CreatedAt: task.CreatedAt,
+			Reminder:  time.Duration(task.Reminder.Value),
+			Complete:  task.ReminderSent,
+		}
+		text := m.String()
+		b.sendMessage(c, text, b.getMainMenuKeyboard())
+	}
+	return nil
 }

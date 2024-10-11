@@ -2,6 +2,7 @@ package postgresql
 
 import (
 	"context"
+	"log"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -15,10 +16,10 @@ type Client interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
-func New(dsn string) (pool *pgxpool.Pool, err error) {
-	pool, err = pgxpool.New(context.Background(), dsn)
+func New(dsn string) *pgxpool.Pool {
+	pool, err := pgxpool.New(context.Background(), dsn)
 	if err != nil {
-		return
+		log.Fatal(err)
 	}
-	return
+	return pool
 }

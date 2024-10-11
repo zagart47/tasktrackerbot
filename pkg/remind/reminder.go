@@ -22,20 +22,48 @@ func ValidateReminderDuration(unit string, value int) error {
 	return nil
 }
 
-func CalculateReminderTime(unit string, value int) time.Time {
-	now := time.Now()
+func CalculateReminderTime(unit string, value int) (time.Duration, string) {
 	switch unit {
 	case "s":
-		return now.Add(time.Duration(value) * time.Second)
+		return time.Duration(value) * time.Second, timeBeautifier(value, unit)
 	case "h":
-		return now.Add(time.Duration(value) * time.Hour)
+		return time.Duration(value) * time.Hour, timeBeautifier(value, unit)
 	case "d":
-		return now.AddDate(0, 0, value)
+		return time.Duration(value) * 24 * time.Hour, timeBeautifier(value, unit)
 	case "w":
-		return now.AddDate(0, 0, value*7)
+		return time.Duration(value) * 7 * 24 * time.Hour, timeBeautifier(value, unit)
 	case "m":
-		return now.AddDate(0, value, 0)
+		return time.Duration(value) * 30 * 24 * time.Hour, timeBeautifier(value, unit)
 	default:
-		return now
+		return 0, ""
 	}
+}
+
+func timeBeautifier(duration int, format string) string {
+	switch format {
+	case "s":
+		return getRightForm(duration, "секунды", "секунд")
+	case "h":
+		return getRightForm(duration, "часа", "часов")
+	case "d":
+		return getRightForm(duration, "дня", "дней")
+	case "w":
+		return getRightForm(duration, "недели", "недель")
+	case "m":
+		return getRightForm(duration, "месяца", "месяцев")
+	default:
+		return "Неверный формат"
+	}
+}
+
+func getRightForm(n int, form1, form2 string) string {
+	n = n % 100
+	if n >= 11 && n <= 19 {
+		return form2
+	}
+	n = n % 10
+	if n == 1 {
+		return form1
+	}
+	return form2
 }
