@@ -16,18 +16,18 @@ func NewTaskStorage(db Client) TaskStorage {
 func (s *TaskStorage) CreateTask(ctx context.Context, task entity.Task) (int64, error) {
 	var id int64
 	err := s.db.QueryRow(ctx, `
-        INSERT INTO tasks (user_id, text, created_at, expiration, duration)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO tasks (user_id, text, created_at, expiration, duration, chat_id, msg_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id;
-    `, task.UserID, task.Text, task.CreatedAt, task.Expiration, task.Duration).Scan(&id)
+    `, task.UserID, task.Text, task.CreatedAt, task.Expiration, task.Duration, task.ChatID, task.MsgID).Scan(&id)
 	return id, err
 }
 
 func (s *TaskStorage) GetTaskByID(ctx context.Context, id int64) (entity.Task, error) {
 	var task entity.Task
 	err := s.db.QueryRow(ctx, `
-        SELECT id, user_id, text, created_at, expiration, duration, reminder_sent FROM tasks WHERE id = $1
-    `, id).Scan(&task.ID, &task.UserID, &task.Text, &task.CreatedAt, &task.Expiration, &task.Duration, &task.ReminderSent)
+        SELECT id, user_id, text, created_at, expiration, duration, reminder_sent, chat_id, msg_id FROM tasks WHERE id = $1
+    `, id).Scan(&task.ID, &task.UserID, &task.Text, &task.CreatedAt, &task.Expiration, &task.Duration, &task.ReminderSent, &task.ChatID, &task.ChatID, &task.MsgID)
 	if err != nil {
 		return entity.Task{}, err
 	}
@@ -36,7 +36,7 @@ func (s *TaskStorage) GetTaskByID(ctx context.Context, id int64) (entity.Task, e
 
 func (s *TaskStorage) GetTasksByUserID(ctx context.Context, userID int64) ([]entity.Task, error) {
 	rows, err := s.db.Query(ctx, `
-        SELECT id, user_id, text, created_at, expiration, duration, reminder_sent FROM tasks WHERE user_id = $1
+        SELECT id, user_id, text, created_at, expiration, duration, reminder_sent, chat_id, msg_id FROM tasks WHERE user_id = $1
     `, userID)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (s *TaskStorage) GetTasksByUserID(ctx context.Context, userID int64) ([]ent
 	var tasks []entity.Task
 	for rows.Next() {
 		var task entity.Task
-		if err := rows.Scan(&task.ID, &task.UserID, &task.Text, &task.CreatedAt, &task.Expiration, &task.Duration, &task.ReminderSent); err != nil {
+		if err := rows.Scan(&task.ID, &task.UserID, &task.Text, &task.CreatedAt, &task.Expiration, &task.Duration, &task.ReminderSent, &task.ChatID, &task.MsgID); err != nil {
 			return nil, err
 		}
 		tasks = append(tasks, task)
@@ -56,7 +56,7 @@ func (s *TaskStorage) GetTasksByUserID(ctx context.Context, userID int64) ([]ent
 
 func (s *TaskStorage) GetUnsentTasks(ctx context.Context) ([]entity.Task, error) {
 	rows, err := s.db.Query(ctx, `
-        SELECT id, user_id, text, created_at, expiration, duration, reminder_sent FROM tasks WHERE reminder_sent = FALSE
+        SELECT id, user_id, text, created_at, expiration, duration, reminder_sent, chat_id, msg_id FROM tasks WHERE reminder_sent = FALSE
     `)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func (s *TaskStorage) GetUnsentTasks(ctx context.Context) ([]entity.Task, error)
 	var tasks []entity.Task
 	for rows.Next() {
 		var task entity.Task
-		if err := rows.Scan(&task.ID, &task.UserID, &task.Text, &task.CreatedAt, &task.Expiration, &task.Duration, &task.ReminderSent); err != nil {
+		if err := rows.Scan(&task.ID, &task.UserID, &task.Text, &task.CreatedAt, &task.Expiration, &task.Duration, &task.ReminderSent, &task.ChatID, &task.MsgID); err != nil {
 			return nil, err
 		}
 		tasks = append(tasks, task)

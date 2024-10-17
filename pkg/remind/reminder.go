@@ -42,28 +42,34 @@ func CalculateReminderTime(unit string, value int) (time.Duration, string) {
 func timeBeautifier(duration int, format string) string {
 	switch format {
 	case "s":
-		return getRightForm(duration, "секунды", "секунд")
+		return getRightForm(duration, "секунды", "секунд", "секунду")
 	case "h":
-		return getRightForm(duration, "часа", "часов")
+		return getRightForm(duration, "часа", "часов", "час")
 	case "d":
-		return getRightForm(duration, "дня", "дней")
+		return getRightForm(duration, "дня", "дней", "день")
 	case "w":
-		return getRightForm(duration, "недели", "недель")
+		return getRightForm(duration, "недели", "недель", "неделю")
 	case "m":
-		return getRightForm(duration, "месяца", "месяцев")
+		return getRightForm(duration, "месяца", "месяцев", "месяц")
 	default:
 		return "Неверный формат"
 	}
 }
 
-func getRightForm(n int, form1, form2 string) string {
+func getRightForm(n int, form1, form2, form3 string) string {
+	if n == 1 {
+		return form3
+	}
+	if n >= 2 && n <= 5 {
+		return form1
+	}
 	n = n % 100
 	if n >= 11 && n <= 19 {
 		return form2
 	}
 	n = n % 10
 	if n == 1 {
-		return form1
+		return form3
 	}
 	return form2
 }

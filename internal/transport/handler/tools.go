@@ -8,11 +8,11 @@ import (
 )
 
 type Message struct {
-	TaskId    string
-	Text      string
-	CreatedAt time.Time
-	Reminder  time.Duration
-	Complete  bool
+	TaskId     string
+	Text       string
+	CreatedAt  time.Time
+	Expiration time.Time
+	Complete   bool
 }
 
 func (m Message) String() string {
@@ -21,8 +21,8 @@ func (m Message) String() string {
 		status = "Да"
 	}
 	return fmt.Sprintf(
-		"Номер задачи: %s\nОписание: %s\nДата добавления: %s\nДата исполнения: %s\nВыполнено: %s",
-		m.TaskId, m.Text, m.CreatedAt.Format("15:04:05 02.01.2006"), m.Reminder, status)
+		"<b>Номер задачи:</b> %s\n<b>Описание:</b> %s\n<b>Дата добавления:</b> %s\n<b>Дата исполнения:</b> %s\n<b>Выполнено:</b> %s",
+		m.TaskId, m.Text, m.CreatedAt.Format("15:04:05 02.01.2006"), m.Expiration.Format("15:04:05 02.01.2006"), status)
 }
 
 func (b *Bot) sendReminder(task entity.Task) error {
@@ -34,13 +34,18 @@ func (b *Bot) sendReminder(task entity.Task) error {
 }
 
 func (b *Bot) getMainMenuKeyboard() *tele.ReplyMarkup {
-	var (
-		keyboard = &tele.ReplyMarkup{}
-		btnList  = keyboard.Text("Мои задачи")
-	)
+	keyboard := &tele.ReplyMarkup{}
+	btnList := keyboard.Text("Мои задачи")
 	keyboard.ResizeKeyboard = true
 	keyboard.Reply(
 		keyboard.Row(btnList),
 	)
+	return keyboard
+}
+
+func (b *Bot) getKeyboardForStartMessaging() *tele.ReplyMarkup {
+	keyboard := &tele.ReplyMarkup{ResizeKeyboard: true}
+	btn := keyboard.Data("Старт", "start_messaging", "start")
+	keyboard.Inline(keyboard.Row(btn))
 	return keyboard
 }

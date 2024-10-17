@@ -34,6 +34,8 @@ func main() {
 
 	// Инициализация сервисов
 	services := service.NewServices(usecases)
+
+	// Заполняем кэш данными из БД
 	services.Tasks.MakeTasksCache(context.Background())
 
 	// Инициализация транспорта

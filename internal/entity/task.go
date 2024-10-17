@@ -9,8 +9,10 @@ type Task struct {
 	CreatedAt    time.Time     `json:"created_at"`
 	Expiration   time.Time     `json:"expiration"`
 	Duration     time.Duration `json:"duration"`
+	ReminderSent bool          `json:"reminder_sent"`
+	MsgID        int           `json:"msg_id"`
+	ChatID       int64         `json:"chat_id"`
 	Reminder     Reminder
-	ReminderSent bool `json:"reminder_sent"`
 }
 
 type Reminder struct {

@@ -2,16 +2,17 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
 	"strconv"
-	"tasktrackerbot/pkg/remind"
 	"time"
 
 	"tasktrackerbot/config"
 	"tasktrackerbot/internal/entity"
 	"tasktrackerbot/internal/transport"
+	"tasktrackerbot/pkg/remind"
 
 	tele "gopkg.in/telebot.v3"
 )
@@ -27,7 +28,7 @@ func NewHandler(bot transport.BotService) Bot {
 }
 
 func (b *Bot) Start(c tele.Context) error {
-	return b.sendMessage(c, "Привет! Я бот для управления задачами.", b.getMainMenuKeyboard())
+	return b.sendMessage(c, "Если ты видишь это сообщение, значит всё идет правильно. Теперь я буду запоминать твои задачи и напоминать тебе о них здесь.", b.getMainMenuKeyboard())
 }
 
 func (b *Bot) sendMessage(c tele.Context, text string, keyboard *tele.ReplyMarkup) error {
@@ -57,7 +58,7 @@ func (b *Bot) HandleCtrlCommand(c tele.Context) error {
 		return nil
 	}
 	// Получаем последнее сообщение от пользователя
-	msg, ok := lastMessages[id]
+	lastMsg, ok := lastMessages[id]
 	if !ok {
 		return c.Reply("Не удалось найти задачу. Убедитесь, что вы отправили сообщение перед командой.")
 	}
@@ -75,11 +76,13 @@ func (b *Bot) HandleCtrlCommand(c tele.Context) error {
 
 	task := entity.Task{
 		UserID:       id,
-		Text:         msg,
+		Text:         lastMsg,
 		CreatedAt:    time.Now(),
 		Expiration:   time.Now().Add(taskDuration),
 		Duration:     taskDuration,
 		ReminderSent: false,
+		ChatID:       c.Chat().ID,
+		MsgID:        c.Message().ID,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), config.Configs.Timeout)
@@ -91,16 +94,36 @@ func (b *Bot) HandleCtrlCommand(c tele.Context) error {
 	}
 
 	// Отправляем ответ пользователю
-
-	text := fmt.Sprintf("#Задача# \"%s\" принята. Присвоил ей № <b>%v</b>. Напомню о ней через <b>%d %s</b>.", task.Text, task.ID, duration, timeUnit)
-	return c.Reply(text, &tele.SendOptions{ParseMode: tele.ModeHTML})
+	text := fmt.Sprintf("#Задача# \"%s\" принята. Присвоил ей номер - <b>%v</b>. Напомню через <b>%d %s</b>.", task.Text, task.ID, duration, timeUnit)
+	botURL := fmt.Sprintf("t.me/%s", botName)
+	_, err = b.Send(tele.ChatID(task.UserID), text, &tele.SendOptions{ParseMode: tele.ModeHTML})
+	if err != nil {
+		if errors.Is(err, tele.ErrChatNotFound) || errors.Is(err, tele.ErrNotStartedByUser) {
+			return c.Reply(fmt.Sprintf("Привет! Я бот для управления задачами. Если ты будешь отправлять мне задачи в чате, я буду запоминать их и напоминать тебе о них. Для того чтобы я начал запоминать твои задачи, перейди ко мне в профиль и нажми кнопку \"Старт\".\n%s", botURL))
+		}
+		if errors.Is(err, tele.ErrBlockedByUser) {
+			return c.Reply(fmt.Sprintf("Чтобы я мог писать тебе в личные сообщения, перейди по ссылке %s и разблокируй меня.", botURL))
+		}
+		return err
+	}
+	return nil
 }
 
 func (b *Bot) InitHandlers() {
 	b.Bot.Handle("/start", b.Start)
+	b.Bot.Handle("/help", b.Help)
 	b.Bot.Handle(tele.OnText, b.HandleCtrlCommand) // Добавляем обработчик команды
 	b.Bot.Handle(&tele.ReplyButton{Text: "Мои задачи"}, b.MyTasksHandler)
+	b.Bot.Handle(&tele.InlineButton{Unique: "start_messaging"}, b.StartMessaging)
 	go b.StartTasksSending()
+}
+
+func (b *Bot) StartMessaging(c tele.Context) error {
+	_, err := b.Send(&tele.User{ID: b.Me.ID}, "/start")
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (b *Bot) StartTasksSending() {
@@ -138,14 +161,18 @@ func (b *Bot) MyTasksHandler(c tele.Context) error {
 	}
 	for _, task := range tasks {
 		m := Message{
-			TaskId:    strconv.FormatInt(task.ID, 10),
-			Text:      task.Text,
-			CreatedAt: task.CreatedAt,
-			Reminder:  time.Duration(task.Reminder.Value),
-			Complete:  task.ReminderSent,
+			TaskId:     strconv.FormatInt(task.ID, 10),
+			Text:       task.Text,
+			CreatedAt:  task.CreatedAt,
+			Expiration: task.Expiration,
+			Complete:   task.ReminderSent,
 		}
 		text := m.String()
 		b.sendMessage(c, text, b.getMainMenuKeyboard())
 	}
 	return nil
+}
+
+func (b *Bot) Help(c tele.Context) error {
+	return c.Send(fmt.Sprintf("Чтобы сохранить задачу и создать напоминание необходимо написать мне в чате сообщение формата \"@%s ctrl 5d\".\nГде \"5\" это интервал, а \"d\" - промежуток времени в днях. Поддерживается несколько промежутков:\nh - часы;\nd - дни;\nw - недели;\nm - месяцы.", c.Bot().Me.Username))
 }
