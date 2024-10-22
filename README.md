@@ -1,8 +1,8 @@
-![Static Badge](https://img.shields.io/badge/%D1%81%D1%82%D0%B0%D1%82%D1%83%D1%81-%D0%B2_%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D0%BA%D0%B5-blue)
-![Static Badge](https://img.shields.io/badge/GO-1.21+-blue)
-![GitHub commit activity](https://img.shields.io/github/commit-activity/w/zagart47/filmoteca)
-![GitHub last commit (by committer)](https://img.shields.io/github/last-commit/zagart47/filmoteca)
-![GitHub forks](https://img.shields.io/github/forks/zagart47/filmoteca)
+![Static Badge](https://img.shields.io/badge/%D1%81%D1%82%D0%B0%D1%82%D1%83%D1%81-%D0%B3%D0%BE%D1%82%D0%BE%D0%B2-blue)
+![Static Badge](https://img.shields.io/badge/GO-1.23-blue)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/w/zagart47/tasktrackerbot)
+![GitHub last commit (by committer)](https://img.shields.io/github/last-commit/zagart47/tasktrackerbot)
+![GitHub forks](https://img.shields.io/github/forks/zagart47/tasktrackerbot)
 
 # TaskTrackerBot 
 Бот для телеграм который напоминает о задачах

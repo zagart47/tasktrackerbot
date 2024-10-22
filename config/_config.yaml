@@ -1,5 +1,5 @@
 bot:
-  token: 7917010015:AAFgCxFiaqo6h0LVNdbRyAcVXShPz2gDebo
+  token:
 
 postgres:
   host: postgres
