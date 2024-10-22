@@ -22,6 +22,6 @@ type Storage struct {
 }
 
 func NewStorages(db *pgxpool.Pool) Storage {
-	repos := postgresql.NewTaskStorage(db)
-	return Storage{Tasks: &repos}
+	storage := postgresql.NewTaskStorage(db)
+	return Storage{Tasks: &storage}
 }

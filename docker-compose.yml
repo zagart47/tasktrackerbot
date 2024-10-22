@@ -1,51 +1,41 @@
 services:
   postgres:
-    image: postgres:alpine
-    container_name: postgres_container
+    image: postgres:latest
+    container_name: postgres
     environment:
-      POSTGRES_DB: "postgres"
       POSTGRES_USER: "postgres"
       POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "postgres"
     volumes:
+      - postgres_data:/var/lib/postgresql/data
       - ./internal/storage/postgresql/migrations:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
-    restart: on-failure
-
-  bot:
-    container_name: bot
-    build:
-      dockerfile: Dockerfile
-    depends_on:
-      - postgres
+    networks:
+      - bot_network
 
   redis:
     image: redis:latest
-    command: redis-server
-    volumes:
-      - redis:/var/lib/redis
-      - redis-config:/usr/local/etc/redis/redis.conf
+    container_name: redis
+    command: redis-server --requirepass "suWD2AlYlVCUoNCz"
     ports:
-      - 6379:6379
+      - "6379:6379"
     networks:
-      - redis-network
+      - bot_network
 
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    environment:
-      - REDIS_HOSTS=local:redis:6379
-      - HTTP_USER=root
-      - HTTP_PASSWORD="suWD2AlYlVCUoNCz"
-    ports:
-      - 8081:8081
-    networks:
-      - redis-network
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bot
     depends_on:
+      - postgres
       - redis
+    networks:
+      - bot_network
 
 volumes:
-  redis:
-  redis-config:
+  postgres_data:
+
 networks:
-  redis-network:
-    driver: bridge
+  bot_network:

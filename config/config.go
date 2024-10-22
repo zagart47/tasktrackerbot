@@ -14,16 +14,16 @@ type cfg struct {
 	Bot            struct {
 		Token string `yaml:"token"`
 	} `yaml:"bot"`
-	PostgreSQL struct {
+	Postgres struct {
 		DSN      string
-		Host     string `yaml:"host" env-default:"localhost"`
+		Host     string `yaml:"host" env-default:"postgres"`
 		Port     string `yaml:"port" env-default:"5432"`
 		DBName   string `yaml:"db_name" env-default:"postgres"`
 		UserName string `yaml:"user_name" env-default:"postgres"`
 		Pwd      string `yaml:"pwd" env-default:"postgres"`
-	} `yaml:"postgreSQL"`
+	} `yaml:"postgres"`
 	Redis struct {
-		Host string `yaml:"host" env-default:"localhost"`
+		Host string `yaml:"host" env-default:"redis"`
 		Port string `yaml:"port" env-default:"6379"`
 		Pwd  string `yaml:"pwd"`
 		Name string `yaml:"name" env-default:"redis"`
@@ -35,8 +35,8 @@ func config() cfg {
 	if err := cleanenv.ReadConfig("./config/config.yaml", &configs); err != nil {
 		log.Println("cannot read configs")
 	}
-	configs.PostgreSQL.DSN = fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=disable", configs.PostgreSQL.DBName, configs.PostgreSQL.UserName,
-		configs.PostgreSQL.Pwd, configs.PostgreSQL.Host, configs.PostgreSQL.Port, configs.PostgreSQL.DBName)
+	configs.Postgres.DSN = fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=disable", configs.Postgres.DBName, configs.Postgres.UserName,
+		configs.Postgres.Pwd, configs.Postgres.Host, configs.Postgres.Port, configs.Postgres.DBName)
 	return configs
 }
 

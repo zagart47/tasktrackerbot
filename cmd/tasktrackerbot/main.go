@@ -18,13 +18,13 @@ func main() {
 	cfg := config.Configs
 
 	// Инициализация пула postgres
-	dbPool := postgresql.New(cfg.PostgreSQL.DSN)
+	dbPool := postgresql.New(cfg.Postgres.DSN)
 
 	// Инициализация стореджа
 	storages := storage.NewStorages(dbPool)
 
 	// Создание схемы в БД
-	migration.Do(cfg.MigrationsPath, cfg.PostgreSQL.DSN)
+	migration.Do(cfg.MigrationsPath, cfg.Postgres.DSN)
 
 	// Инициализация кеша
 	mc := cache.NewRedisClient(cfg.Redis.Host, cfg.Redis.Port, cfg.Redis.Pwd)

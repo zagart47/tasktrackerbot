@@ -1,15 +1,15 @@
 bot:
-  token:
+  token: 7917010015:AAFgCxFiaqo6h0LVNdbRyAcVXShPz2gDebo
 
-postgreSQL:
-  host:
+postgres:
+  host: postgres
   port: 5432
   db_name: postgres
   user_name: postgres
-  pwd:
+  pwd: postgres
 timeout: 10s
 migration: file://././internal/storage/postgresql/migrations
 redis:
-  host:
+  host: redis
   port: 6379
-  pwd:
+  pwd: suWD2AlYlVCUoNCz
