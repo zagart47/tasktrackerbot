@@ -28,11 +28,11 @@ func NewHandler(bot transport.BotService) Bot {
 }
 
 func (b *Bot) Start(c tele.Context) error {
-	return b.sendMessage(c, "Если ты видишь это сообщение, значит всё идет правильно. Теперь я буду запоминать твои задачи и напоминать тебе о них здесь.", b.getMainMenuKeyboard())
+	return b.sendMessage(c, "Если ты видишь это сообщение, значит всё идет правильно. Теперь я буду запоминать твои задачи и напоминать тебе о них здесь.")
 }
 
-func (b *Bot) sendMessage(c tele.Context, text string, keyboard *tele.ReplyMarkup) error {
-	return c.Send(text, &tele.SendOptions{ReplyMarkup: keyboard, ParseMode: tele.ModeHTML})
+func (b *Bot) sendMessage(c tele.Context, text string) error {
+	return c.Send(text, &tele.SendOptions{ParseMode: tele.ModeHTML})
 }
 
 func checkCommand(command string, botName string) []string {
@@ -60,7 +60,7 @@ func (b *Bot) HandleCtrlCommand(c tele.Context) error {
 	// Получаем последнее сообщение от пользователя
 	lastMsg, ok := lastMessages[id]
 	if !ok {
-		return c.Reply("Не удалось найти задачу. Убедитесь, что вы отправили сообщение перед командой.")
+		return b.sendMessage(c, "Не удалось найти задачу. Убедитесь, что вы отправили сообщение перед командой.")
 	}
 
 	// Извлекаем интервал и продолжительность
@@ -69,7 +69,7 @@ func (b *Bot) HandleCtrlCommand(c tele.Context) error {
 
 	err := remind.ValidateReminderDuration(timeFormat, duration)
 	if err != nil {
-		return c.Reply("Неверный формат срока напоминания")
+		return b.sendMessage(c, "Неверный формат срока напоминания")
 	}
 
 	taskDuration, timeUnit := remind.CalculateReminderTime(timeFormat, duration)
@@ -85,26 +85,24 @@ func (b *Bot) HandleCtrlCommand(c tele.Context) error {
 		MsgID:        c.Message().ID,
 	}
 
+	// Отправляем ответ пользователю
+	text := fmt.Sprintf("#Задача# \"%s\" принята. Напомню через <b>%d %s</b>.", task.Text, duration, timeUnit)
+	err = b.sendMessage(c, text)
+	if err != nil {
+		if errors.Is(err, tele.ErrChatNotFound) || errors.Is(err, tele.ErrNotStartedByUser) {
+			return c.Reply(fmt.Sprintf("Для того, чтобы я запоминал твои задачи, перейди ко мне в профиль и нажми кнопку \"Запустить\".\n@%s\nЗатем вернись сюда и повтори ввод задачи и команды.", botName))
+		}
+		if errors.Is(err, tele.ErrBlockedByUser) {
+			return c.Reply(fmt.Sprintf("Чтобы я мог писать тебе в личные сообщения, перейди по ссылке @%s и разблокируй меня.", botName))
+		}
+		return err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), config.Configs.Timeout)
 	defer cancel()
 	// Добавляем задачу с использованием сервиса
 	task.ID, err = b.Services.Tasks.AddTask(ctx, task)
 	if err != nil {
-		return c.Reply(fmt.Sprintf("Ошибка при добавлении задачи: %s", err.Error()))
-	}
-
-	// Отправляем ответ пользователю
-	text := fmt.Sprintf("#Задача# \"%s\" принята. Присвоил ей номер - <b>%v</b>. Напомню через <b>%d %s</b>.", task.Text, task.ID, duration, timeUnit)
-	botURL := fmt.Sprintf("t.me/%s", botName)
-	_, err = b.Send(tele.ChatID(task.UserID), text, &tele.SendOptions{ParseMode: tele.ModeHTML})
-	if err != nil {
-		if errors.Is(err, tele.ErrChatNotFound) || errors.Is(err, tele.ErrNotStartedByUser) {
-			return c.Reply(fmt.Sprintf("Привет! Я бот для управления задачами. Если ты будешь отправлять мне задачи в чате, я буду запоминать их и напоминать тебе о них. Для того чтобы я начал запоминать твои задачи, перейди ко мне в профиль и нажми кнопку \"Старт\".\n%s", botURL))
-		}
-		if errors.Is(err, tele.ErrBlockedByUser) {
-			return c.Reply(fmt.Sprintf("Чтобы я мог писать тебе в личные сообщения, перейди по ссылке %s и разблокируй меня.", botURL))
-		}
-		return err
+		return b.sendMessage(c, fmt.Sprintf("Ошибка при добавлении задачи: %s", err.Error()))
 	}
 	return nil
 }
@@ -113,17 +111,8 @@ func (b *Bot) InitHandlers() {
 	b.Bot.Handle("/start", b.Start)
 	b.Bot.Handle("/help", b.Help)
 	b.Bot.Handle(tele.OnText, b.HandleCtrlCommand) // Добавляем обработчик команды
-	b.Bot.Handle(&tele.ReplyButton{Text: "Мои задачи"}, b.MyTasksHandler)
-	b.Bot.Handle(&tele.InlineButton{Unique: "start_messaging"}, b.StartMessaging)
+	b.Bot.Handle("/tasks", b.MyTasksHandler)
 	go b.StartTasksSending()
-}
-
-func (b *Bot) StartMessaging(c tele.Context) error {
-	_, err := b.Send(&tele.User{ID: b.Me.ID}, "/start")
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (b *Bot) StartTasksSending() {
@@ -168,11 +157,11 @@ func (b *Bot) MyTasksHandler(c tele.Context) error {
 			Complete:   task.ReminderSent,
 		}
 		text := m.String()
-		b.sendMessage(c, text, b.getMainMenuKeyboard())
+		return b.sendMessage(c, text)
 	}
 	return nil
 }
 
 func (b *Bot) Help(c tele.Context) error {
-	return c.Send(fmt.Sprintf("Чтобы сохранить задачу и создать напоминание необходимо написать мне в чате сообщение формата \"@%s ctrl 5d\".\nГде \"5\" это интервал, а \"d\" - промежуток времени в днях. Поддерживается несколько промежутков:\nh - часы;\nd - дни;\nw - недели;\nm - месяцы.", c.Bot().Me.Username))
+	return b.sendMessage(c, fmt.Sprintf("Чтобы сохранить задачу и создать напоминание необходимо отправить в чат свою задачу и отправить следующее сообщение в чат в формате \"<b>@%s ctrl 5d</b>\".\nГде \"5\" это интервал, а \"d\" - промежуток времени в днях. Поддерживается несколько промежутков:\nh - часы;\nd - дни;\nw - недели;\nm - месяцы.", c.Bot().Me.Username))
 }

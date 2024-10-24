@@ -36,7 +36,7 @@ func (s *TaskStorage) GetTaskByID(ctx context.Context, id int64) (entity.Task, e
 
 func (s *TaskStorage) GetTasksByUserID(ctx context.Context, userID int64) ([]entity.Task, error) {
 	rows, err := s.db.Query(ctx, `
-        SELECT id, user_id, text, created_at, expiration, duration, reminder_sent, chat_id, msg_id FROM tasks WHERE user_id = $1
+        SELECT id, user_id, text, created_at, expiration, duration, reminder_sent, chat_id, msg_id FROM tasks WHERE user_id = $1 AND reminder_sent = false
     `, userID)
 	if err != nil {
 		return nil, err
