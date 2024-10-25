@@ -87,7 +87,7 @@ func (b *Bot) HandleCtrlCommand(c tele.Context) error {
 
 	// Отправляем ответ пользователю
 	text := fmt.Sprintf("#Задача# \"%s\" принята. Напомню через <b>%d %s</b>.", task.Text, duration, timeUnit)
-	err = b.sendMessage(c, text)
+	_, err = b.Send(tele.ChatID(task.UserID), text, &tele.SendOptions{ParseMode: tele.ModeHTML})
 	if err != nil {
 		if errors.Is(err, tele.ErrChatNotFound) || errors.Is(err, tele.ErrNotStartedByUser) {
 			return c.Reply(fmt.Sprintf("Для того, чтобы я запоминал твои задачи, перейди ко мне в профиль и нажми кнопку \"Запустить\".\n@%s\nЗатем вернись сюда и повтори ввод задачи и команды.", botName))
